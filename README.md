@@ -32,12 +32,6 @@
 - WebRTC 연결 상대에게 네트워크 주소가 알려질 수 있습니다. 로그인·랭크·재접속·중앙 서버 부정행위 방지는 제공하지 않습니다. 방장은 전체 게임 상태를 관리하는 비공식 캐주얼 대전입니다.
 - 카드 효과와 승패는 현재 프로젝트의 적용 규칙을 따릅니다. 자동 테스트 통과가 공식 규칙 전부의 정확성을 보증하지 않습니다.
 
-## GitHub Pages 배포
-
-공개 저장소의 **Settings → Pages → Source → GitHub Actions**를 선택합니다. `main`에 커밋하면 테스트·정적 파일 준비·배포가 순서대로 실행됩니다. **Actions → Publish game**이 완료되면 Pages 주소가 표시됩니다. 유료 도메인이나 상시 게임 서버를 요구하지 않습니다.
-
-공개 배포에는 실행 파일·가공된 카드 이미지·연결 라이브러리·관련 설명만 포함합니다. 원본 첨부 파일, 개인 설정, 대용량 시뮬레이션 원자료는 포함하지 않습니다.
-
 PeerJS 라이선스: [MIT](vendor/peerjs-LICENSE.txt)
 
 참고: [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [PeerJS FAQ](https://peerjs.com/client/faq)

@@ -22,18 +22,6 @@
 - WebRTC 연결 상대에게 네트워크 주소가 알려질 수 있습니다. 방 코드를 아는 한 사람이 참가하는 친구 대전용이며 로그인·랭크·재접속·중앙 서버 부정행위 방지는 제공하지 않습니다. 방장은 전체 게임 상태를 관리하므로 서로 신뢰하는 사람과 플레이하세요.
 - 카드 효과와 승패는 현재 프로젝트의 적용 규칙을 따릅니다. 자동 테스트 통과가 공식 규칙 전부의 정확성을 보증하지 않습니다.
 
-## 로컬 실행 및 검증
-
-Node.js 24 이상에서 별도 설치 없이 실행할 수 있습니다.
-
-```text
-node scripts/serve.cjs
-node --test tests/online-engine.test.cjs tests/online-room.test.cjs
-node scripts/build-pages.cjs
-```
-
-로컬 주소: http://127.0.0.1:8010/
-
 ## GitHub Pages 배포
 
 공개 저장소의 **Settings → Pages → Source → GitHub Actions**를 선택합니다. `main`에 커밋하면 테스트·정적 파일 준비·배포가 순서대로 실행됩니다. **Actions → Publish game**이 완료되면 Pages 주소가 표시됩니다. 유료 도메인이나 상시 게임 서버를 요구하지 않습니다.

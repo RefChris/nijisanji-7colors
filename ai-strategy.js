@@ -106,7 +106,7 @@
       const reserve=[2,102,203,302].includes(unit.id)&&s.units.filter(c=>[2,102,203,302].includes(c.id)&&active(c)).length===1&&s.enemyUnits.some(active)?2:0;
       const intercept=blockers.length?Math.min(...blockers.map(b=>unit.power>=b.power?1.1:-value(unit,s))):null;
       const color=call(s,unit);
-      if(color.target&&color.probability){const gain=intercept??color.probability*urgency-reserve-.6;if(gain>best.score)best={kind:'call',unit:unit.token,target:color.target,score:gain}}
+      if(color.target&&(color.probability||unit.colors.length===0)){const reveal=unit.colors.length===0?1:0;const gain=intercept??color.probability*urgency+reveal-reserve-.6;if(gain>best.score)best={kind:'call',unit:unit.token,target:color.target,score:gain}}
       for(const target of s.enemyUnits.filter(c=>c.rested&&c.power<=unit.power)){
         let gain=2+value(target,s)*.7+([7,111,211,308].includes(unit.id)?call(s,unit).probability*urgency:0)+(unit.id===209&&unit.enteredTurn===s.turn?urgency:0)+(unit.id===9&&unit.enteredTurn===s.turn&&s.hand.length?2:0)-reserve;
         if(k)gain*=tuning.battleScale;

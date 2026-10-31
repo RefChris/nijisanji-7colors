@@ -54,13 +54,13 @@ function createOnlineEngine({playerDeck='mito',opponentDeck='kuzuha',first='play
       if(input.type==='play'&&Array.isArray(input.costs)&&input.costs.length<=10){const x=refs.get(input.card);if(x)ok=b.play(x,input.costs.map(x=>refs.get(x)))}
       if(input.type==='set')ok=b.setCard(refs.get(input.card));
       if(input.type==='activate'&&['channel','stage'].includes(input.source)){const x=input.source==='channel'?b.channel:b.stage.querySelector('img');if(x&&effects.canActivateMain(owner,x)){effects.activateMain(owner,x);ok=true}}
-      if(input.type==='act'&&b.phase()===2){const x=refs.get(input.unit),target=refs.get(input.target);if(x?.parentElement===b.field&&!x.classList.contains('rested')){if(input.action==='call'&&CardInfo[x.dataset.cardId].colors.length&&effects.canColorCall(x)){actions.selectUnit(owner,x);actions.beginColorCall();ok=true}else if(input.action==='battle'&&target?.parentElement===boards.get(other(owner)).field&&target.classList.contains('rested')){actions.selectUnit(owner,x);actions.selectUnit(other(owner),target);ok=true}}}
+      if(input.type==='act'&&b.phase()===2){const x=refs.get(input.unit),target=refs.get(input.target);if(x?.parentElement===b.field&&!x.classList.contains('rested')){if(input.action==='call'&&effects.canColorCall(x)){actions.selectUnit(owner,x);actions.beginColorCall();ok=true}else if(input.action==='battle'&&target?.parentElement===boards.get(other(owner)).field&&target.classList.contains('rested')){actions.selectUnit(owner,x);actions.selectUnit(other(owner),target);ok=true}}}
     }
     if(!ok)throw Error('지금은 이 행동을 할 수 없습니다.');revision++;drain();
     if(previousActive!==match.state().active&&!state().winner)remaining[previousActive]+=30000;
     tick();return revision;
   }
-  const visibleCard=(x,shown)=>({ref:ref(x),...(shown?{id:+x.dataset.cardId,power:effects.power(x)}:{}),rested:x.classList.contains('rested')});
+  const visibleCard=(x,shown)=>({ref:ref(x),...(shown?{id:+x.dataset.cardId,power:effects.power(x),canCall:effects.canColorCall(x)}:{}),rested:x.classList.contains('rested')});
   function snapshot(viewer){
     if(!boards.has(viewer))throw Error('관전자는 지원하지 않습니다.');
     const result={revision,viewer,first,dice,state:state(),clock:clock(),boards:{},choice:null};

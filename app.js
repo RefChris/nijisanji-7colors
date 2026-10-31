@@ -158,7 +158,7 @@ function advancePhase(skipped=false){
     const wanted=NijiRules.startDraw(hand.children.length),drawn=draw(wanted);
     cardEffects.startTurn(playerId);
     setPhase(1);
-    tell(`스타트 완료 → 메인 페이즈: 유닛을 액티브로 전환하고 ${drawn}장을 뽑았습니다. 손패 ${hand.children.length}장.${drawn<wanted?' 덱이 부족해 5장을 채우지 못했습니다.':''}`);update()});
+    tell(`스타트 완료 → 메인 페이즈: 유닛을 액티브로 전환하고 ${drawn}장을 뽑았습니다. 손패 ${hand.children.length}장.${drawn<wanted?' 덱이 부족해 필요한 카드를 모두 뽑지 못했습니다.':''}`);update()});
   }else{
     const previous=phase,next=NijiRules.nextPhase(phase,turn,role);setPhase(next);
     tell(`${labels[previous]} ${skipped?'스킵':'완료'} → ${labels[next]}${next===3&&previous===1?' · 선공 첫 턴 액션 생략':''}`);

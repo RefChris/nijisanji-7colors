@@ -25,14 +25,14 @@ function createActionGame(document,cardInfo,effects=null){
     // No entry-turn restriction: newly played active units may act immediately.
     if(!validUnit(owner,card)){b.tell('레스트 유닛은 행동할 수 없습니다. 액티브 유닛을 선택하세요.');return}
     if(selected?.card===card){cancel();return}
-    clearSelection();selected={owner,card};card.classList.add('action-selected');callButton.disabled=!info(card).colors.length||effects?.canColorCall?.(card)===false;bar.hidden=false;positionBar();
+    clearSelection();selected={owner,card};card.classList.add('action-selected');callButton.disabled=effects?.canColorCall?.(card)===false;bar.hidden=false;positionBar();
     boards.get(enemyOf(owner))?.field.classList.add('battle-targets');b.tell('컬러 콜을 누르거나 상대의 레스트 유닛을 클릭해 배틀하세요.');
   }
   function availableColors(owner){const b=boards.get(owner);return b?[...b.colorLine.children].filter(c=>b.colors.includes(c)):[]}
   function openColorCall(special=false,after=null,actor=selected?.owner){
     if(!ready(special,special)||pending){after?.();return}
     const enemyId=enemyOf(selected.owner),enemy=boards.get(enemyId),targets=availableColors(enemyId);
-    if(!enemy||!targets.length||!info(selected.card).colors.length){boards.get(selected.owner).tell('컬러 콜 가능한 대상 또는 유닛 컬러가 없습니다.');after?.();clearSelection();return}
+    if(!enemy||!targets.length){boards.get(selected.owner).tell('컬러 콜 가능한 대상이 없습니다.');after?.();clearSelection();return}
     pending={actor,kind:'color',owner:selected.owner,enemy:enemyId,unit:selected.card,targets,special,after};
     const colorTicket=pending;colorTicket.resolve=target=>{if(pending===colorTicket)resolveColor(enemyId,target)};bar.hidden=true;
     const title=el('h2','',special?'SP 콜 · 상대 컬러 라인':'상대 컬러 라인');
@@ -44,7 +44,7 @@ function createActionGame(document,cardInfo,effects=null){
       const image=el('img');image.src=target.querySelector('img').src;image.alt=faceUp?enemy.colorName(target.dataset.color):'컬러 카드 뒷면';image.draggable=false;
       choice.append(image,el('span','',faceUp?enemy.colorName(target.dataset.color):`${index+1}번 · 뒷면`));choices.append(choice);
     }
-    dialog.classList.remove('reaction-view');dialog.replaceChildren(title,help,choices);if(!special)dialog.append(button('취소',()=>cancel()));decisionView.show(title.textContent,{image:selected.card.src,label:`${info(selected.card).name} · ${special?'SP 콜':'컬러 콜'} 진행 중`,detail:`파워 ${power(selected.card).toLocaleString()} · 컬러 ${info(selected.card).colors.join(' / ')}`});
+    dialog.classList.remove('reaction-view');dialog.replaceChildren(title,help,choices);if(!special)dialog.append(button('취소',()=>cancel()));decisionView.show(title.textContent,{image:selected.card.src,label:`${info(selected.card).name} · ${special?'SP 콜':'컬러 콜'} 진행 중`,detail:`파워 ${power(selected.card).toLocaleString()} · 컬러 ${info(selected.card).colors.join(' / ')||'없음'}`});
   }
   function resolveColor(enemyId,target){
     if(pending?.kind!=='color'||pending.enemy!==enemyId||!ready(!!pending.special,!!pending.special)||!availableColors(enemyId).includes(target)){const after=pending?.after;cancel(true);after?.();return}
@@ -84,7 +84,7 @@ function createActionGame(document,cardInfo,effects=null){
     });handlers.set(option,choice.onclick);choice.dataset.ui='reactionChoice';const image=el('img');image.src=option.card.src;image.alt=info(option.card).name;choice.append(image);choices.append(choice)}
     const pass=button('반응하지 않고 진행',()=>{if(pending!==reactionTicket)return;closeDialog();proceed()});reactionTicket.resolve=option=>{if(pending!==reactionTicket)return;if(option===null)pass.onclick();else handlers.get(option)?.()};pass.dataset.ui='passReaction';dialog.replaceChildren(el('h2','','수비 측 반응'),context,el('p','','블로커 또는 수호 효과를 선택하세요. 반응 선택 후 파워를 자동 비교합니다.'),choices,pass);if(canCancel(pending))dialog.append(button('행동 취소',()=>cancel()));decisionView.show('수비 측 반응',{image:attack.src,label:`공격 중 · ${info(attack).name}`,detail:`${kind==='battle'?'배틀':'컬러 콜'} · 파워 ${power(attack).toLocaleString()} · 선택 대기`});
   }
-  function beginColorCall(){if(!ready()||pending||effects?.blocked()||effects?.canColorCall?.(selected.card)===false)return;const other=enemyOf(selected.owner);if(!other||!info(selected.card).colors.length){openColorCall();return}offerResponses('color',other,null,()=>openColorCall())}
+  function beginColorCall(){if(!ready()||pending||effects?.blocked()||effects?.canColorCall?.(selected.card)===false)return;const other=enemyOf(selected.owner);if(!other){openColorCall();return}offerResponses('color',other,null,()=>openColorCall())}
   function beginBattle(enemyId,target){if(!ready()||!validUnit(enemyId,target,false)||!target.classList.contains('rested')){boards.get(selected?.owner)?.tell('상대의 레스트 유닛을 선택하세요.');return}offerResponses('battle',enemyId,target,()=>openBattle(enemyId,target))}
   function specialColorCall(owner,card,done,actor=owner){if(!validUnit(owner,card,false)){done();return}clearSelection();selected={owner,card};card.classList.add('action-selected');openColorCall(true,()=>{clearSelection();done()},actor)}
   document.addEventListener?.('keydown',e=>{if(e.key==='Escape'&&!effects?.blocked())cancel()});document.addEventListener?.('scroll',positionBar,true);if(typeof window!=='undefined')window.addEventListener('resize',positionBar);

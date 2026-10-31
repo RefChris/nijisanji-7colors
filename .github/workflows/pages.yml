@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Verify multiplayer rules and rooms
-        run: node --test tests/online-engine.test.cjs tests/online-room.test.cjs tests/public-lobby.test.cjs
+        run: node --test tests/rules.test.cjs tests/online-engine.test.cjs tests/online-room.test.cjs tests/public-lobby.test.cjs
       - name: Build public game files
         run: node scripts/build-pages.cjs
       - uses: actions/configure-pages@v5

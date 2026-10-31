@@ -1,0 +1,3 @@
+// Levels read from the upper-left corner of the local NJ-SD02 card images.
+// Reference: output/cards/new-cards-preview.jpg. These are not deck quantities.
+const CardLevels=Object.freeze({...(typeof KagamiCardInfo!=='undefined'?Object.fromEntries(Object.entries(KagamiCardInfo).filter(([,c])=>c.level!==null).map(([id,c])=>[id,c.level])):{}),2:1,3:1,4:2,5:3,6:1,7:2,8:2,9:3,10:0,11:2,12:3,13:3,14:2,15:3,16:2,...(typeof MitoCardInfo!=='undefined'?Object.fromEntries(Object.entries(MitoCardInfo).filter(([,c])=>c.level!==null).map(([id,c])=>[id,c.level])):{}),...(typeof SasakiCardInfo!=='undefined'?Object.fromEntries(Object.entries(SasakiCardInfo).filter(([,c])=>c.level!==null).map(([id,c])=>[id,c.level])):{})});

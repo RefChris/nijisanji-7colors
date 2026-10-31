@@ -1,0 +1,9 @@
+dist/
+release/
+.env
+.env.*
+.codex/
+.agents/
+node_modules/
+*.log
+__pycache__/

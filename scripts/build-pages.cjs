@@ -1,7 +1,8 @@
 const fs=require('node:fs'),path=require('node:path');
+require('./render-matching-page.cjs');
 const root=path.resolve(__dirname,'..'),dest=path.join(root,'dist');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const files=new Set(['index.html','output/card-back.svg','vendor/peerjs-LICENSE.txt']);
+const files=new Set(['index.html','lobby.html','output/card-back.svg','vendor/peerjs-LICENSE.txt']);
 for(const m of html.matchAll(/(?:src|href)="([^"?#]+)(?:\?[^"#]*)?"/g)){
   if(!m[1].startsWith('http')&&m[1]!== './')files.add(m[1]);
 }

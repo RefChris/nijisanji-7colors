@@ -1,6 +1,6 @@
 // The room host runs the same card/phase/effect engine. Peers send commands,
 // never board state. Snapshots omit the other seat's hidden card identities.
-function createOnlineEngine({playerDeck='mito',opponentDeck='kuzuha',first='player',dice=null,random}={}){
+function createOnlineEngine({playerDeck='mito',opponentDeck='kuzuha',first='player',dice=null,random,now=()=>globalThis.performance?.now()??Date.now()}={}){
   if(!GameDeck.getDeck(playerDeck)||!GameDeck.getDeck(opponentDeck)||!['player','opponent'].includes(first))throw Error('잘못된 대전 설정입니다.');
   const rng=random||(()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]/4294967296});
   class Node{
@@ -30,9 +30,21 @@ function createOnlineEngine({playerDeck='mito',opponentDeck='kuzuha',first='play
     boards.set(owner,b);effects.register(owner,b);actions.register(owner,b);
   }
   match=createAIMatch({boards,effects,actions,strategy:{},info:CardInfo});match.reset(false,first);resetting=false;
+  let timeResult=null,lastClock=now(),running=first;
+  const remaining={player:300000,opponent:300000};
+  const state=()=>timeResult?{...match.state(),...timeResult}:match.state();
+  function tick(){
+    const at=Math.max(lastClock,now());let expired=false;
+    if(!state().winner&&running){remaining[running]=Math.max(0,remaining[running]-(at-lastClock));if(remaining[running]===0){timeResult={winner:other(running),reason:'제한 시간 초과'};revision++;expired=true}}
+    lastClock=at;running=state().winner?null:effects.getChoice()?.owner||actions.getDecision()?.owner||match.state().active;
+    return expired;
+  }
+  const clock=()=>({remaining:{...remaining},running,incrementMs:30000});
   const drain=()=>{if(!effects.blocked()&&!actions.blocked())match.step()};
   function command(owner,input){
-    if(!boards.has(owner)||!input||input.revision!==revision||match.state().winner)throw Error('상태가 변경되었습니다. 다시 선택해 주세요.');
+    tick();
+    if(!boards.has(owner)||!input||input.revision!==revision||state().winner)throw Error('상태가 변경되었습니다. 다시 선택해 주세요.');
+    const previousActive=match.state().active;
     const b=boards.get(owner),fx=effects.getChoice(),d=actions.getDecision();let ok=false;
     if(fx){if(fx.owner!==owner||input.type!=='effect'||!Array.isArray(input.cards)||input.cards.length>50)throw Error('효과 선택을 기다리고 있습니다.');ok=fx.resolve(input.cards.map(x=>refs.get(x)));}
     else if(d){if(d.owner!==owner)throw Error('상대의 선택을 기다리고 있습니다.');if(d.kind==='reaction'&&input.type==='react'&&(input.option===null||Number.isInteger(input.option)&&input.option>=0&&input.option<d.options.length)){d.resolve(input.option===null?null:d.options[input.option]);ok=true}else if(d.kind==='color'&&input.type==='color'){const x=refs.get(input.target);if(d.targets.includes(x)){d.resolve(x);ok=true}}}
@@ -44,16 +56,19 @@ function createOnlineEngine({playerDeck='mito',opponentDeck='kuzuha',first='play
       if(input.type==='activate'&&['channel','stage'].includes(input.source)){const x=input.source==='channel'?b.channel:b.stage.querySelector('img');if(x&&effects.canActivateMain(owner,x)){effects.activateMain(owner,x);ok=true}}
       if(input.type==='act'&&b.phase()===2){const x=refs.get(input.unit),target=refs.get(input.target);if(x?.parentElement===b.field&&!x.classList.contains('rested')){if(input.action==='call'&&CardInfo[x.dataset.cardId].colors.length&&effects.canColorCall(x)){actions.selectUnit(owner,x);actions.beginColorCall();ok=true}else if(input.action==='battle'&&target?.parentElement===boards.get(other(owner)).field&&target.classList.contains('rested')){actions.selectUnit(owner,x);actions.selectUnit(other(owner),target);ok=true}}}
     }
-    if(!ok)throw Error('지금은 이 행동을 할 수 없습니다.');revision++;drain();return revision;
+    if(!ok)throw Error('지금은 이 행동을 할 수 없습니다.');revision++;drain();
+    if(previousActive!==match.state().active&&!state().winner)remaining[previousActive]+=30000;
+    tick();return revision;
   }
   const visibleCard=(x,shown)=>({ref:ref(x),...(shown?{id:+x.dataset.cardId,power:effects.power(x)}:{}),rested:x.classList.contains('rested')});
   function snapshot(viewer){
     if(!boards.has(viewer))throw Error('관전자는 지원하지 않습니다.');
-    const result={revision,viewer,first,dice,state:match.state(),boards:{},choice:null};
+    const result={revision,viewer,first,dice,state:state(),clock:clock(),boards:{},choice:null};
     for(const [owner,b] of boards){const own=owner===viewer;result.boards[owner]={key:b.key,turn:b.turn(),phase:b.phase(),role:b.role(),deckCount:b.deckCount(),channel:{...visibleCard(b.channel,true),under:effects.underCards(b.channel).length},hand:[...b.hand.children].map(x=>visibleCard(x,own)),field:[...b.field.children].map(x=>visibleCard(x,true)),set:[...b.set.children].map(x=>visibleCard(x,own)),stage:[...b.stage.children].map(x=>({...visibleCard(x,true),under:effects.underCards(x).length})),log:[...b.log.children].map(x=>visibleCard(x,true)),colors:[...b.colorLine.children].map(x=>({ref:ref(x),faceUp:x.dataset.faceUp==='true',...(x.dataset.faceUp==='true'?{color:x.dataset.color}:{})})),niji:b.colors.filter(x=>x.parentElement!==b.colorLine).map(x=>x.dataset.color),notice:own?b.messages.at(-1)||'':''}}
     const fx=effects.getChoice(),d=actions.getDecision();if(fx){result.waiting=fx.owner;if(fx.owner===viewer)result.choice={kind:'effect',title:fx.title||document.body.children.find(x=>x.id==='effect-dialog')?.querySelector('h2')?.textContent||'카드 효과 선택',min:fx.min,max:fx.max,ordered:fx.ordered,optional:fx.optional,cards:fx.cards.map(x=>CardInfo[x.dataset.cardId]?visibleCard(x,true):{ref:ref(x),faceUp:x.dataset.faceUp==='true',...(x.dataset.faceUp==='true'?{color:x.dataset.color}:{})})}}
     else if(d){result.waiting=d.owner;result.attack={actor:d.actor||d.owner,unit:visibleCard(d.unit,true),action:d.action||d.kind,target:d.target?visibleCard(d.target,true):null};if(d.owner===viewer)result.choice=d.kind==='reaction'?{kind:'reaction',title:'수비 측 반응',options:d.options.map((o,i)=>({index:i,label:o.label,card:visibleCard(o.card,true)}))}:{kind:'color',title:d.special?'SP 콜 · 상대 컬러 선택':'상대 컬러 선택',cards:d.targets.map(x=>({ref:ref(x),faceUp:x.dataset.faceUp==='true',...(x.dataset.faceUp==='true'?{color:x.dataset.color}:{})}))}}
+    if(timeResult){result.choice=null;result.waiting=null;result.attack=null}
     return result;
   }
-  return {command,snapshot};
+  return {command,snapshot,tick,clock};
 }

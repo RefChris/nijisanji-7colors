@@ -10,7 +10,7 @@ function createLobbyFlow({match,random=Math.random,onChange=()=>{}}){
     stage=firstOwner?'result':'tie';onChange(state());return true;
   }
   function setDeck(owner,key){if(stage==='match'||!['player','opponent'].includes(owner)||!['kuzuha','mito','sasaki','kagami'].includes(key))return false;decks[owner]=key;stage='ready';dice=null;firstOwner=null;onChange(state());return true}
-  function start(){if(stage!=='result'||!firstOwner)return false;stage='match';match.setDecks?.(decks);match.reset(mode==='ai',firstOwner);onChange(state());return true}
+  function start(){if(stage!=='result'||!firstOwner)return false;stage='match';match.setDecks?.(decks);match.reset(mode==='ai',firstOwner,undefined,true);onChange(state());return true}
   return {open,setMode,setDeck,roll,start,state};
 }
 

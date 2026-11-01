@@ -1,4 +1,4 @@
-const NIJI_ONLINE_VERSION='7colors-online-20261031-v3';
+const NIJI_ONLINE_VERSION='7colors-online-20261101-v4';
 function createOnlineRoom({PeerCtor=Peer,engineFactory=createOnlineEngine,onState=()=>{},onSnapshot=()=>{},onClock=()=>{},onError=()=>{},cryptoSource=crypto,peerOptions={}}={}){
   let peer=null,conn=null,engine=null,timer=null,heartbeat=null,clockTimer=null,seen=0,epoch=0;
   let state={stage:'idle',host:false,code:'',deck:'mito',guestDeck:null,selfReady:false,peerReady:false,connected:false};
@@ -38,7 +38,7 @@ function createOnlineRoom({PeerCtor=Peer,engineFactory=createOnlineEngine,onStat
     peer.on('disconnected',()=>{if(ticket===epoch&&conn?.open&&!peer.destroyed)peer.reconnect()});
   }
   return {state:()=>({...state}),host:deck=>connect(true,deck),join:(code,deck)=>connect(false,deck,String(code).trim().toUpperCase()),close,
-    connectDirectory:id=>{if(!state.host||state.stage!=='waiting'||state.connected||!peer?.open)throw Error('공개할 대기 방이 없습니다.');return peer.connect(id,{reliable:true,serialization:'json',metadata:{version:'niji7-directory-v3',role:'publisher'}})},
+    connectDirectory:id=>{if(!state.host||state.stage!=='waiting'||state.connected||!peer?.open)throw Error('공개할 대기 방이 없습니다.');return peer.connect(id,{reliable:true,serialization:'json',metadata:{version:'niji7-directory-v4',role:'publisher'}})},
     ready:value=>{if(state.stage!=='waiting'||!state.connected||!state.guestDeck)return;state.selfReady=!!value;if(state.host)waiting();else safeSend({kind:'ready',version:NIJI_ONLINE_VERSION,value:state.selfReady});emit()},
     start:()=>{if(!state.host||state.stage!=='waiting'||!state.connected||!state.selfReady||!state.peerReady)return false;let dice;for(let i=0;i<128;i++){dice={player:roll(),opponent:roll()};if(dice.player!==dice.opponent)break}if(dice.player===dice.opponent)return false;engine=engineFactory({playerDeck:state.deck,opponentDeck:state.guestDeck,first:dice.player>dice.opponent?'player':'opponent',dice});state.stage='match';emit();publish();if(engine.clock){clockTimer=setInterval(()=>{if(!engine)return;if(engine.tick()){publish();return}const value=engine.clock();onClock(value);safeSend({kind:'clock',version:NIJI_ONLINE_VERSION,value})},1000)}return true},
     command:input=>{if(state.stage!=='match'||!state.connected)return false;if(state.host){try{engine.command('player',input);publish()}catch(e){onError(e.message);publish()}}else safeSend({kind:'command',version:NIJI_ONLINE_VERSION,value:input});return true}

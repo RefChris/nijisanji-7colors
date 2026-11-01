@@ -1,5 +1,5 @@
 function createAIMatch({boards,effects,actions,strategy,info,onChange=()=>{},random=Math.random}){
-  let active='player',on=true,paused=false,winner=null,reason='',deckResult=null,resetting=false,scene='match',preferredDecks=null;const started=new Set(['player']),tokens=new WeakMap();let serial=0;
+  let active='player',on=true,paused=false,winner=null,reason='',deckResult=null,resetting=false,scene='match',preferredDecks=null;const started=new Set(['player']),tokens=new WeakMap();let serial=0,opening=null;
   const token=c=>{if(!tokens.has(c))tokens.set(c,String(++serial));return tokens.get(c)};
   const card=c=>{const data=info[c.dataset.cardId];if(!data)return {token:token(c),type:'컬러',colors:[],faceUp:c.dataset.faceUp==='true',...(c.dataset.faceUp==='true'?{color:c.dataset.color}:{})};return {token:token(c),id:+c.dataset.cardId,...data,power:effects.power(c),rested:c.classList.contains('rested'),canCall:effects.canColorCall?.(c)!==false,enteredTurn:+c.dataset.enteredTurn}};
   const other=owner=>owner==='player'?'opponent':'player';
@@ -12,19 +12,20 @@ function createAIMatch({boards,effects,actions,strategy,info,onChange=()=>{},ran
       colors:[...enemy.colorLine.children].filter(c=>enemy.colors.includes(c)).map(c=>({token:token(c),faceUp:c.dataset.faceUp==='true',...(c.dataset.faceUp==='true'?{color:c.dataset.color}:{})}))};
   }
   const find=(list,id)=>[...list].find(c=>token(c)===id);
-  function reset(enabled=on,firstOwner='player',decks=preferredDecks){
+  function reset(enabled=on,firstOwner='player',decks=preferredDecks,withMulligan=false){
     if(!['player','opponent'].includes(firstOwner))return false;
-    scene='match';on=enabled;paused=false;winner=null;reason='';deckResult=null;active=firstOwner;started.clear();started.add(firstOwner);resetting=true;
+    opening=withMulligan?{owner:firstOwner,used:false}:null;scene='match';on=enabled;paused=false;winner=null;reason='';deckResult=null;active=firstOwner;started.clear();started.add(firstOwner);resetting=true;
     try{for(const [owner,b] of boards){if(decks?.[owner])b.setDeck?.(decks[owner]);b.setRole?.(owner===firstOwner?'first':'second');b.reset()}}finally{resetting=false}onChange(state());return true;
   }
-  function enterLobby(){scene='lobby';paused=false;actions.cancel(true);for(const [owner,b] of boards){effects.reset(owner);b.suspend?.()}onChange(state())}
+  function enterLobby(){opening=null;scene='lobby';paused=false;actions.cancel(true);for(const [owner,b] of boards){effects.reset(owner);b.suspend?.()}onChange(state())}
   function endTurn(owner){
-    if(scene!=='match'||winner||deckResult||owner!==active)return;
+    if(scene!=='match'||opening||winner||deckResult||owner!==active)return;
     active=other(owner);const b=boards.get(active);
     if(started.has(active))b.startTurn();else started.add(active);
     onChange(state());
   }
-  function state(){return {enabled:on,scene,paused,active,winner,reason,ending:!!deckResult&&!winner}}
+  function chooseOpening(owner,replace){if(!opening||owner!==opening.owner||typeof replace!=='boolean')return false;if(replace){if(opening.used||!boards.get(owner).mulligan?.())return false;opening.used=true}else{boards.get(owner).commit?.();opening=owner===active?{owner:other(owner),used:false}:null}onChange(state());return true}
+  function state(){return {opening:opening?{...opening}:null,enabled:on,scene,paused,active,winner,reason,ending:!!deckResult&&!winner}}
   function noteDeckEmpty(owner){
     if(scene!=='match'||resetting||winner||deckResult)return;
     const mine=collected(boards.get('player')).length,theirs=collected(boards.get('opponent')).length;
@@ -33,6 +34,7 @@ function createAIMatch({boards,effects,actions,strategy,info,onChange=()=>{},ran
   }
   function step(){
     if(scene!=='match'||winner||resetting)return false;
+    if(opening){if(!on||opening.owner!=='opponent')return false;const cheap=observation('opponent').hand.filter(c=>c.type==='라이버'&&c.level<=1).length;chooseOpening('opponent',!opening.used&&cheap===0);return true}
     for(const [owner,b] of boards)if(b.deckCount()===0)noteDeckEmpty(owner);
     if((!on||paused)&&!deckResult){
       if(!effects.blocked()&&!actions.blocked())for(const owner of ['player','opponent'])if(collected(boards.get(other(owner))).length===7){winner=owner;reason='7색 완성';onChange(state());return true}
@@ -86,31 +88,40 @@ function createAIMatch({boards,effects,actions,strategy,info,onChange=()=>{},ran
     }
     b.advance();onChange(state());return true;
   }
-  return {setDecks:selection=>{preferredDecks={...selection}},step,endTurn,reset,enterLobby,state,observation,noteDeckEmpty,enabled:()=>on,managed:()=>scene==='match',pause:()=>{if(scene!=='match'||!on||winner)return;paused=!paused;onChange(state())}};
+  return {chooseOpening,setDecks:selection=>{preferredDecks={...selection}},step,endTurn,reset,enterLobby,state,observation,noteDeckEmpty,enabled:()=>on,managed:()=>scene==='match',pause:()=>{if(scene!=='match'||!on||winner)return;paused=!paused;onChange(state())}};
 }
 
 if(typeof module!=='undefined'&&module.exports)module.exports=createAIMatch;
 else if(typeof GameBoards!=='undefined'&&GameBoards.size===2){
   const status=document.querySelector('#ai-status'),pause=document.querySelector('#ai-pause');
   let adviceUI=null;
+  const openingDialog=document.createElement('dialog');openingDialog.className='mulligan-dialog';openingDialog.setAttribute('aria-label','시작 패 확인');document.body.append(openingDialog);
+  openingDialog.addEventListener('cancel',e=>e.preventDefault());
+  function renderOpening(s){
+    openingDialog.close();if(!s.opening||globalThis.NijiOnline?.active()||s.enabled&&s.opening.owner==='opponent')return;
+    const owner=s.opening.owner,b=GameBoards.get(owner),title=document.createElement('h2'),hint=document.createElement('p'),cards=document.createElement('div');
+    title.textContent=(s.enabled?'내':owner==='player'?'플레이어 1':'플레이어 2')+' 시작 패 · '+b.hand.children.length+'장';hint.textContent=s.opening.used?'멀리건을 사용했습니다. 새 패를 확인하고 확정하세요.':'패 전체를 덱에 섞고 같은 장수로 다시 뽑을 수 있습니다. 대전당 1회입니다.';cards.className='mulligan-cards';
+    for(const c of b.hand.children){const img=document.createElement('img');img.src=c.src;img.dataset.cardId=c.dataset.cardId;img.alt=CardInfo[c.dataset.cardId].name;cards.append(img)}
+    const redraw=document.createElement('button'),keep=document.createElement('button');redraw.textContent='전체 다시 뽑기 (1회)';redraw.disabled=s.opening.used;redraw.onclick=()=>matchController.chooseOpening(owner,true);keep.textContent=s.opening.used?'이 패로 확정':'이 패로 시작';keep.onclick=()=>matchController.chooseOpening(owner,false);openingDialog.replaceChildren(title,hint,cards,redraw,keep);openingDialog.showModal();
+  }
   function render(s){
     const inLobby=s.scene==='lobby';document.body.dataset.screen=inLobby?'lobby':'match';
     for(const element of document.querySelectorAll('body>header,body>main,body>.card-inspector')){element.inert=inLobby;element.setAttribute('aria-hidden',String(inLobby))}
-    status.textContent=s.winner?(s.winner==='player'?'승리!':s.enabled?'AI 승리':'상대 승리')+' · '+s.reason:s.ending?'덱 소진 · 판정 처리 중':!s.enabled?(s.active==='player'?'플레이어 1 턴':'플레이어 2 턴'):s.paused?'AI 일시정지':s.active==='opponent'?'AI가 판단 중…':'내 턴 · 중급 AI';
+    status.textContent=s.opening?'시작 패 확인 · 양쪽 확정 후 대전 시작':s.winner?(s.winner==='player'?'승리!':s.enabled?'AI 승리':'상대 승리')+' · '+s.reason:s.ending?'덱 소진 · 판정 처리 중':!s.enabled?(s.active==='player'?'플레이어 1 턴':'플레이어 2 턴'):s.paused?'AI 일시정지':s.active==='opponent'?'AI가 판단 중…':'내 턴 · 중급 AI';
     status.setAttribute('role','status');pause.hidden=!s.enabled;pause.textContent=s.paused?'AI 재개':'AI 일시정지';pause.disabled=!!s.winner;
     status.title=s.reason||status.textContent;
     for(const element of document.querySelectorAll('[data-player]')){
-      const owner=element.dataset.player;element.classList.toggle('inactive-turn',inLobby||!!s.winner||s.ending||owner!==s.active);
+      const owner=element.dataset.player;element.classList.toggle('inactive-turn',inLobby||!!s.opening||!!s.winner||s.ending||owner!==s.active);
       if(owner==='opponent')element.querySelector('[data-ui="hand"]').classList.toggle('concealed',s.enabled);
       const b=GameBoards.get(owner);b.update();
       for(const control of element.querySelectorAll('button[data-ui],select[data-ui]')){
         if(!['next','skip','deck','activateChannel','activateStage','mulligan','reset','role','toggleHand'].includes(control.dataset.ui))continue;
         if(control.dataset.ui==='toggleHand')control.disabled=s.enabled;
-        else if(inLobby||s.winner||s.ending||owner!==s.active||['reset','role'].includes(control.dataset.ui)||s.enabled&&(owner==='opponent'||control.dataset.ui==='deck'))control.disabled=true;
+        else if(inLobby||s.opening||s.winner||s.ending||owner!==s.active||['reset','role'].includes(control.dataset.ui)||s.enabled&&(owner==='opponent'||control.dataset.ui==='deck'))control.disabled=true;
       }
     }
     document.querySelector('.match-label').textContent=s.enabled?'AI 대전':'로컬 대전';
-    adviceUI?.render();
+    renderOpening(s);adviceUI?.render();
   }
   matchController=createAIMatch({boards:GameBoards,effects:cardEffects,actions:actionGame,strategy:NijiAI,info:CardInfo,onChange:render});
   actionGame.setCancelPolicy(decision=>!matchController.enabled()||decision?.actor!=='opponent'&&decision?.owner!=='opponent');
@@ -131,7 +142,7 @@ else if(typeof GameBoards!=='undefined'&&GameBoards.size===2){
     const fieldTarget=e.target.closest('.field-cards img');
     if(s.scene==='match'&&!s.winner&&!s.ending&&(!s.enabled||s.active==='player')&&board.dataset.player!==s.active&&fieldTarget&&event==='click')return;
     const manualDrop=event==='drop'&&e.target.closest('[data-zone="log"],[data-ui="hand"]');
-    const forbidden=s.scene!=='match'||s.winner||s.ending||board.dataset.player!==s.active||e.target.closest('[data-ui="reset"],[data-ui="role"]')||s.enabled&&(board.dataset.player==='opponent'||manualDrop||e.target.closest('[data-ui="deck"]'));
+    const forbidden=s.scene!=='match'||s.opening||s.winner||s.ending||board.dataset.player!==s.active||e.target.closest('[data-ui="reset"],[data-ui="role"]')||s.enabled&&(board.dataset.player==='opponent'||manualDrop||e.target.closest('[data-ui="deck"]'));
     if(forbidden){e.preventDefault();e.stopImmediatePropagation()}
   },true);
   lobby.open();

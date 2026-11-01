@@ -12,6 +12,7 @@ function createAIAdvisor({boards,match,effects,actions,strategy,info}){
     const state=match.state(),choice=effects.getChoice(),d=actions.getDecision();
     const owner=choice?.owner||d?.owner||state.active;
     if(state.scene==='lobby')return idle('대전을 시작하면 추천합니다.','AI 도움을 켜면 현재 상황에 맞는 다음 행동을 보여줍니다.');
+    if(state.opening)return idle('시작 패를 확인하세요.','멀리건은 대전 시작 전 1회 사용할 수 있습니다.');
     if(state.winner||state.ending)return idle(state.winner?'대전이 종료되었습니다.':'승패 판정을 처리하고 있습니다.');
     if(state.enabled&&owner!=='player')return idle('상대 턴을 기다리는 중','내 행동이나 수비 선택이 가능해지면 추천을 갱신합니다.');
     if(effects.blocked()&&!choice&&!d)return idle('카드 효과를 처리하는 중','처리가 끝나면 추천을 갱신합니다.');

@@ -2,7 +2,7 @@
 // peer ID; others re-elect a directory and re-publish waiting rooms if it leaves.
 // Game state and private cards never pass through this directory.
 function createPublicLobby({PeerCtor=Peer,peerOptions={},connectHost,onRooms=()=>{},onStatus=()=>{},retryMs=1500,heartbeatMs=5000,now=Date.now}={}){
-  const directoryId='niji7-public-lobby-v3',version='niji7-directory-v3';
+  const directoryId='niji7-public-lobby-v4',version='niji7-directory-v4';
   let client=null,leader=null,viewer=null,publisher=null,listing=null,started=false,retry=null,pulse=null,watchdog=null,publicationTimeout=null,ready=false,lastRooms='';
   const records=new Map(),watchers=new Set(),links=new Set();
   const validCode=x=>typeof x==='string'&&/^[A-HJ-NP-Z2-9]{8}$/.test(x),validDeck=x=>['mito','kuzuha','sasaki','kagami'].includes(x);
